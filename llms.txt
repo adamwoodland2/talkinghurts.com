@@ -1,0 +1,22 @@
+# talkinghurts.com - Talking Hurts
+
+A free, fully client-side communication aid for people who temporarily cannot speak
+(laryngitis, strained voice, throat/thyroid surgery recovery, radiotherapy, painful mouth).
+
+- Build sentences from one-tap phrase completions and predicted next words; the device
+  speaks them aloud, or shows them in giant text for the person opposite.
+- Context tabs (Help, Out, Home, Shop, Cafe, Medical) with seed phrases per situation;
+  the red Help tab is always first.
+- Learns locally: every spoken sentence becomes a one-tap suggestion, weighted by use,
+  per context. The model lives in the browser's local storage - nothing is uploaded,
+  no accounts, no tracking.
+- Optional natural neural voices (Piper, ~60 MB one-time download) with sentence-level
+  prosody; falls back to the device's built-in speech otherwise. Synthesised audio is
+  cached on-device for instant replay.
+- Settings: your name and local emergency number personalise the phrases; saved places
+  switch the context automatically on arrival (foreground only, no location uploads).
+- Backup export/import as a JSON file; imports merge so learning from two devices combines.
+- Installable PWA, works fully offline. Portrait and landscape layouts.
+
+Not a regulated medical device and not a substitute for professional speech therapy or
+AAC assessment.

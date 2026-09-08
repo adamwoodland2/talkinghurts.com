@@ -1,0 +1,441 @@
+  :root {
+    --bg: #10141c;
+    --panel: #1a2130;
+    --panel-2: #222b3e;
+    --text: #e8ecf4;
+    --muted: #8b96ab;
+    --accent: #4f8ef7;
+    --accent-2: #2f6fe0;
+    --good: #3ecf8e;
+    --warn: #f7b74f;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  /* The app owns the first viewport; the about text scrolls beneath it. */
+  #appview {
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    max-width: 700px;
+    margin: 0 auto;
+    padding: env(safe-area-inset-top) 12px calc(env(safe-area-inset-bottom) + 8px);
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 2px 6px;
+  }
+  header h1 { font-size: 17px; margin: 0; font-weight: 600; letter-spacing: 0.2px; }
+  #voiceStatus {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: right;
+    line-height: 1.3;
+  }
+  #voiceStatus button {
+    font-size: 12px;
+    color: var(--accent);
+    background: none;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 4px 8px;
+    cursor: pointer;
+  }
+  #voiceBox { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  #voiceSel {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--panel-2);
+    border-radius: 8px;
+    font-size: 13px;
+    padding: 5px 8px;
+    max-width: 220px;
+    min-width: 0;
+    flex: 0 1 auto;   /* shrink before pushing the settings gear off-screen */
+  }
+  #voiceStatus { flex: 0 0 auto; }
+  #setBtn { flex: 0 0 auto; }
+
+  #contexts {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 4px 0 10px;
+    scrollbar-width: none;
+  }
+  #contexts::-webkit-scrollbar { display: none; }
+  .ctx {
+    flex: 0 0 auto;
+    border: 1px solid var(--panel-2);
+    background: var(--panel);
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .ctx.active {
+    background: var(--accent-2);
+    border-color: var(--accent-2);
+    color: #fff;
+  }
+  .ctx.help { border-color: rgba(224, 90, 60, 0.65); color: #ff9770; }
+  .ctx.help.active { background: #d9482f; border-color: #d9482f; color: #fff; }
+
+  #sentenceBar {
+    background: var(--panel);
+    border: 1px solid var(--panel-2);
+    border-radius: var(--radius);
+    min-height: 64px;
+    padding: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+  #sentenceBar .placeholder { color: var(--muted); font-size: 15px; padding: 4px; }
+  .token {
+    background: var(--panel-2);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 17px;
+    cursor: pointer;
+  }
+  .token:last-of-type { outline: 1px solid rgba(79,142,247,.45); }
+  #barBtns { margin-left: auto; display: flex; gap: 6px; }
+  #barBtns button {
+    background: none;
+    border: 1px solid var(--panel-2);
+    color: var(--muted);
+    border-radius: 8px;
+    font-size: 16px;
+    padding: 6px 10px;
+    cursor: pointer;
+  }
+
+  #suggestions { flex: 1; overflow-y: auto; padding: 12px 0 4px; }
+  .sugHead {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin: 10px 2px 6px;
+  }
+  #completions, #words { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    border: none;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 17px;
+    cursor: pointer;
+    color: var(--text);
+    background: var(--panel-2);
+    text-align: left;
+  }
+  .chip.completion {
+    background: rgba(79, 142, 247, 0.16);
+    border: 1px solid rgba(79, 142, 247, 0.4);
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .chip.completion .lift {
+    flex: 0 0 auto;
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 22px;
+    background: rgba(79, 142, 247, 0.28);
+    border: none;
+    color: var(--text);
+    border-radius: 6px;
+    font-size: 13px;
+    line-height: 1;
+    padding: 0 9px;
+    margin: -2px 0; /* never taller than the label line, so rows stay slim */
+    cursor: pointer;
+  }
+  .empty { color: var(--muted); font-size: 14px; padding: 6px 2px; }
+
+  #composer { display: flex; gap: 8px; padding: 8px 0; }
+  #freeText {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--panel-2);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 17px;
+    padding: 12px;
+    min-width: 0;
+  }
+  #freeText:focus { outline: 1px solid var(--accent); }
+  #addBtn {
+    background: var(--panel-2);
+    color: var(--text);
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    padding: 0 16px;
+    cursor: pointer;
+  }
+
+  #actions { display: flex; gap: 10px; padding-bottom: 6px; }
+  #actions button {
+    flex: 1;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 19px;
+    font-weight: 600;
+    padding: 16px;
+    cursor: pointer;
+  }
+  #showBtn { background: var(--panel-2); color: var(--text); }
+  #histBtn { flex: 0 0 auto !important; background: var(--panel-2); color: var(--text); }
+
+  #histPanel {
+    position: fixed;
+    inset: 0;
+    background: rgba(6, 9, 14, 0.72);
+    display: none;
+    align-items: flex-end;
+    z-index: 40;
+  }
+  #histPanel.show { display: flex; }
+  #histSheet {
+    background: var(--panel);
+    width: 100%;
+    max-width: 700px;
+    margin: 0 auto;
+    max-height: 65vh;
+    overflow-y: auto;
+    border-radius: 16px 16px 0 0;
+    padding: 14px 14px calc(env(safe-area-inset-bottom) + 14px);
+  }
+  #histSheet h2 {
+    margin: 0 0 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  #histList { display: flex; flex-direction: column; gap: 8px; }
+  .histItem {
+    text-align: left;
+    background: var(--panel-2);
+    border: none;
+    color: var(--text);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 17px;
+    cursor: pointer;
+  }
+  .histItem .when { display: block; color: var(--muted); font-size: 12px; margin-top: 3px; }
+  #speakBtn { background: var(--accent-2); color: #fff; flex: 2; }
+  #speakBtn:active { background: var(--accent); }
+  #speakBtn.busy { opacity: 0.6; }
+
+  #overlay {
+    position: fixed;
+    inset: 0;
+    background: #fff;
+    color: #111;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 28px;
+    z-index: 50;
+    cursor: pointer;
+  }
+  #overlay.show { display: flex; }
+  #overlayText { font-size: clamp(34px, 9vw, 72px); font-weight: 700; line-height: 1.2; }
+  #againBtn {
+    position: absolute;
+    bottom: calc(env(safe-area-inset-bottom) + 44px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #111;
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    font-size: 17px;
+    font-weight: 600;
+    padding: 12px 22px;
+    cursor: pointer;
+  }
+  #overlayHint {
+    position: absolute;
+    bottom: calc(env(safe-area-inset-bottom) + 14px);
+    left: 0; right: 0;
+    color: #999;
+    font-size: 14px;
+  }
+
+  .status-ok { color: var(--good); }
+  .status-warn { color: var(--warn); }
+  .chip.completion .lift svg { display: block; }
+
+  #setBtn {
+    background: var(--panel);
+    border: 1px solid var(--panel-2);
+    color: var(--text);
+    border-radius: 8px;
+    font-size: 15px;
+    padding: 5px 9px;
+    cursor: pointer;
+  }
+
+  /* ---------- settings sheet (same pattern as history) ---------- */
+  #setPanel {
+    position: fixed;
+    inset: 0;
+    background: rgba(6, 9, 14, 0.72);
+    display: none;
+    align-items: flex-end;
+    z-index: 40;
+  }
+  #setPanel.show { display: flex; }
+  #setSheet {
+    background: var(--panel);
+    width: 100%;
+    max-width: 700px;
+    margin: 0 auto;
+    max-height: 85vh;
+    overflow-y: auto;
+    border-radius: 16px 16px 0 0;
+    padding: 16px 16px calc(env(safe-area-inset-bottom) + 16px);
+  }
+  #setSheet h2 { margin: 0 0 12px; font-size: 16px; }
+  .setSub { margin: 20px 0 8px; font-size: 14px; }
+  .setLbl { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
+  .setHint { display: block; font-weight: 400; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  #setSheet input[type="text"], #setSheet select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--panel-2);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 16px;
+    padding: 10px 12px;
+  }
+  .placeRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: var(--panel-2);
+    border-radius: 10px;
+    padding: 9px 12px;
+    margin-bottom: 6px;
+    font-size: 15px;
+  }
+  .placeRow button {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 15px;
+    cursor: pointer;
+    padding: 2px 6px;
+  }
+  .placeAdd { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; margin-top: 8px; }
+  .placeAdd #addPlaceBtn {
+    grid-column: 1 / -1;
+    background: var(--accent-2);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 11px;
+    cursor: pointer;
+  }
+  .placeAdd select { width: auto; }
+  .setRow { display: flex; gap: 8px; }
+  .setRow button {
+    flex: 1;
+    background: var(--panel-2);
+    border: 1px solid var(--panel-2);
+    color: var(--text);
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 12px;
+    cursor: pointer;
+  }
+
+  /* ---------- toast ---------- */
+  #toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom) + 86px);
+    transform: translateX(-50%) translateY(8px);
+    background: var(--panel-2);
+    color: var(--text);
+    border-radius: 999px;
+    padding: 9px 18px;
+    font-size: 15px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s, transform 0.18s;
+    z-index: 60;
+    white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ---------- about (below the app, scrolls) ---------- */
+  .about { background: #0b0e14; border-top: 1px solid var(--panel-2); }
+  .about-inner { max-width: 700px; margin: 0 auto; padding: 30px 16px 44px; }
+  .about h2 { font-size: 20px; margin: 0 0 10px; }
+  .about h3 { font-size: 16px; margin: 24px 0 6px; }
+  .about h4 { font-size: 14px; margin: 16px 0 4px; }
+  .about p { margin: 0 0 10px; line-height: 1.55; color: #c7cfdc; font-size: 14.5px; }
+  .about-footer { color: var(--muted); font-size: 12.5px; margin-top: 22px; }
+
+  /* ---------- landscape: rail of contexts + actions on the left ---------- */
+  @media (orientation: landscape) and (max-height: 540px) {
+    #appview {
+      max-width: none;
+      display: grid;
+      grid-template-columns: 205px minmax(0, 1fr);
+      grid-template-rows: auto auto 1fr auto;
+      grid-template-areas:
+        "header header"
+        "ctx    bar"
+        "ctx    sug"
+        "actions composer";
+      column-gap: 12px;
+      padding: env(safe-area-inset-top) calc(env(safe-area-inset-right) + 10px)
+               calc(env(safe-area-inset-bottom) + 6px) calc(env(safe-area-inset-left) + 10px);
+    }
+    header { grid-area: header; padding: 6px 2px 4px; }
+    #contexts {
+      grid-area: ctx;
+      flex-direction: column;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 2px 0;
+      align-content: start;
+    }
+    .ctx { text-align: left; }
+    #sentenceBar { grid-area: bar; min-height: 52px; }
+    #suggestions { grid-area: sug; padding: 8px 0 2px; min-height: 0; }
+    .sugHead:first-child { margin-top: 0; }
+    #composer { grid-area: composer; padding: 6px 0 0; }
+    #actions { grid-area: actions; padding: 6px 0 0; }
+    #actions button { padding: 10px; font-size: 16px; }
+    #freeText { padding: 9px 12px; }
+    .chip { padding: 9px 12px; font-size: 16px; }
+  }
