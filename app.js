@@ -64,6 +64,16 @@ const CONTEXTS = [
   { id: "medical", label: "⚕️ Medical" },
 ];
 
+// User-defined contexts (Settings): no seed phrases of their own - they start from the
+// general blend and grow purely from what gets said in them.
+function allContexts() {
+  return [...CONTEXTS, ...customCtx.map((c) => ({ id: c.id, label: `${c.emoji || "⭐"} ${c.name}` }))];
+}
+function contextLabel(id) {
+  const c = allContexts().find((x) => x.id === id);
+  return c ? c.label : id;
+}
+
 // Piper voices (~25–75 MB each, downloaded once and kept in browser storage)
 // Default is the OpenSLR 83 voice (CC-BY-SA, the cleanest licence of the four);
 // "Jenny (Dioco)" naming is a condition of that voice's licence.
@@ -72,7 +82,10 @@ const VOICES = [
   { id: "en_GB-alan-medium",                  label: "Alan — male, English" },
   { id: "en_GB-jenny_dioco-medium",           label: "Jenny (Dioco) — female" },
   { id: "en_GB-alba-medium",                  label: "Alba — female, Scottish" },
+  { id: "en_US-amy-medium",                   label: "Amy — female, American" },
+  { id: "en_US-ryan-medium",                  label: "Ryan — male, American" },
 ];
+const voiceLabel = (id) => (VOICES.find((v) => v.id === id) || { label: id }).label;
 
 /* ============================== state ============================== */
 
@@ -82,12 +95,15 @@ const LS_VOICE = "th-voice-v1";
 const LS_HIST = "th-hist-v1";
 const LS_SET = "th-settings-v1";
 const LS_PLACES = "th-places-v1";
+const LS_CCTX = "th-cctx-v1";
 
 let model = loadJSON(LS_MODEL) || { contexts: {} };
 let hist = loadJSON(LS_HIST) || []; // [{text, t}] newest first
 let settings = { name: "", emergency: "", ...(loadJSON(LS_SET) || {}) };
 let places = loadJSON(LS_PLACES) || []; // [{id, name, ctx, lat, lon, radius}]
+let customCtx = loadJSON(LS_CCTX) || []; // [{id, name, emoji}]
 let ctx = localStorage.getItem(LS_CTX) || "general";
+if (![...CONTEXTS, ...customCtx.map((c) => ({ id: c.id }))].some((c) => c.id === ctx)) ctx = "general";
 let voiceId = localStorage.getItem(LS_VOICE) || VOICES[0].id;
 if (!VOICES.some((v) => v.id === voiceId)) voiceId = VOICES[0].id;
 let words = [];    // current sentence under construction
@@ -141,10 +157,10 @@ function predict() {
   }
 
   // Bigram fallback: nothing matches the whole prefix, so predict from the
-  // last word alone using every sentence we know about.
+  // last word alone using every sentence we know about (custom contexts included).
   if (nextWords.size === 0 && words.length > 0) {
     const last = words[words.length - 1].toLowerCase();
-    for (const context of Object.keys(SEEDS)) {
+    for (const context of new Set([...Object.keys(SEEDS), ...Object.keys(model.contexts)])) {
       for (const [text, weight] of sentencesFor(context)) {
         const toks = text.split(/\s+/);
         for (let i = 0; i < toks.length - 1; i++) {
@@ -183,7 +199,7 @@ function pushHistory(text) {
 
 function renderContexts() {
   $("contexts").innerHTML = "";
-  for (const c of CONTEXTS) {
+  for (const c of allContexts()) {
     const b = document.createElement("button");
     b.className = "ctx" + (c.id === ctx ? " active" : "") + (c.id === "help" ? " help" : "");
     b.textContent = c.label;
@@ -256,7 +272,8 @@ function renderSuggestions() {
       refresh();
     };
     b.appendChild(lift);
-    b.onclick = () => { words = c.text.split(/\s+/); refresh(); speak(); };
+    b.onclick = () => { if (b.dataset.held) { delete b.dataset.held; return; } words = c.text.split(/\s+/); refresh(); speak(); };
+    attachLongPressForget(b, c.text);
     compEl.appendChild(b);
   }
   if (completions.length === 0) {
@@ -280,6 +297,49 @@ function renderSuggestions() {
 function refresh() {
   renderSentence();
   renderSuggestions();
+}
+
+// Long-press a suggestion to forget it (learned phrases only - a typo'd sentence would
+// otherwise haunt the suggestions forever). The chip flips to an inline confirm.
+function attachLongPressForget(chip, text) {
+  let timer = 0, x0 = 0, y0 = 0;
+  chip.addEventListener("pointerdown", (e) => {
+    x0 = e.clientX; y0 = e.clientY;
+    timer = setTimeout(() => {
+      timer = 0;
+      chip.dataset.held = "1";           // swallow the click that follows the release
+      const learned = !!model.contexts[ctx]?.sentences[text];
+      chip.innerHTML = "";
+      chip.classList.add("confirming");
+      const q = document.createElement("span");
+      q.textContent = learned ? "Forget this phrase?" : "Built-in phrase - it can't be removed.";
+      chip.appendChild(q);
+      if (learned) {
+        const yes = document.createElement("span");
+        yes.className = "lift danger";
+        yes.setAttribute("role", "button");
+        yes.textContent = "Forget";
+        yes.onclick = (ev) => { ev.stopPropagation(); forgetPhrase(ctx, text); toast("Forgotten"); renderSuggestions(); };
+        chip.appendChild(yes);
+      }
+      const no = document.createElement("span");
+      no.className = "lift";
+      no.setAttribute("role", "button");
+      no.textContent = learned ? "Keep" : "OK";
+      no.onclick = (ev) => { ev.stopPropagation(); renderSuggestions(); };
+      chip.appendChild(no);
+      setTimeout(() => { if (chip.classList.contains("confirming")) renderSuggestions(); }, 5000);
+    }, 600);
+  });
+  const cancel = (e) => {
+    if (timer && e && e.type === "pointermove" && Math.hypot(e.clientX - x0, e.clientY - y0) < 10) return;
+    if (timer) { clearTimeout(timer); timer = 0; }
+  };
+  chip.addEventListener("pointermove", cancel);
+  chip.addEventListener("pointerup", () => { if (timer) { clearTimeout(timer); timer = 0; } });
+  chip.addEventListener("pointercancel", cancel);
+  chip.addEventListener("pointerleave", cancel);
+  chip.addEventListener("contextmenu", (e) => e.preventDefault()); // long-press must not open the menu
 }
 
 /* ============================== composer ============================== */
@@ -434,6 +494,12 @@ function renderVoices() {
   };
 }
 
+// A ~5 s pre-rendered sample per voice, so nobody commits to a 60 MB download blind.
+$("voicePlay").onclick = async () => {
+  player.src = `samples/${voiceId}.wav`;
+  try { await player.play(); } catch { toast("No preview available for this voice.", true); }
+};
+
 // --- speak -----------------------------------------------------------------
 function webSpeech(text) {
   const u = new SpeechSynthesisUtterance(text);
@@ -550,12 +616,13 @@ $("histPanel").onclick = (e) => {
 /* ============================== toast ============================== */
 
 let toastTimer = 0;
-function toast(msg) {
+function toast(msg, isError = false) {
   const t = $("toast");
   t.textContent = msg;
+  t.classList.toggle("error", isError);
   t.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+  toastTimer = setTimeout(() => t.classList.remove("show"), isError ? 4000 : 2600);
 }
 
 /* ============================== settings sheet ============================== */
@@ -585,14 +652,156 @@ function renderSettings() {
     const row = document.createElement("div");
     row.className = "placeRow";
     const label = document.createElement("span");
-    const cname = CONTEXTS.find((c) => c.id === p.ctx);
-    label.textContent = `${p.name} → ${cname ? cname.label : p.ctx} (${p.radius} m)`;
+    label.textContent = `${p.name} → ${contextLabel(p.ctx)} (${p.radius} m)`;
     const del = document.createElement("button");
     del.textContent = "✕";
     del.title = "Remove this place";
     del.onclick = () => { places = places.filter((x) => x !== p); savePlaces(); renderSettings(); };
     row.append(label, del);
     list.appendChild(row);
+  }
+  renderCustomCtxList();
+  renderPhraseManager();
+  renderVoiceStore();
+}
+
+/* ---- custom contexts ---- */
+
+function saveCustomCtx() { localStorage.setItem(LS_CCTX, JSON.stringify(customCtx)); }
+
+function renderCustomCtxList() {
+  const list = $("ctxList");
+  list.innerHTML = "";
+  if (customCtx.length === 0) {
+    list.innerHTML = '<div class="empty">No extra tabs yet. Add one (say, Work or School run) and it learns its own phrases.</div>';
+  }
+  for (const c of customCtx) {
+    const row = document.createElement("div");
+    row.className = "placeRow";
+    const label = document.createElement("span");
+    const n = Object.keys(model.contexts[c.id]?.sentences || {}).length;
+    label.textContent = `${c.emoji || "⭐"} ${c.name}${n ? ` (${n} learned phrase${n === 1 ? "" : "s"})` : ""}`;
+    const del = document.createElement("button");
+    del.textContent = "✕";
+    del.title = "Remove this tab";
+    del.onclick = () => {
+      const n2 = Object.keys(model.contexts[c.id]?.sentences || {}).length;
+      if (!confirm(`Remove the "${c.name}" tab${n2 ? ` and its ${n2} learned phrase${n2 === 1 ? "" : "s"}` : ""}?`)) return;
+      customCtx = customCtx.filter((x) => x !== c);
+      saveCustomCtx();
+      delete model.contexts[c.id];
+      saveModel();
+      places = places.filter((p) => p.ctx !== c.id);   // geofences pointing at it go too
+      savePlaces();
+      if (ctx === c.id) { ctx = "general"; localStorage.setItem(LS_CTX, ctx); }
+      renderContexts();
+      renderSuggestions();
+      renderSettings();
+    };
+    row.append(label, del);
+    list.appendChild(row);
+  }
+}
+
+$("addCtxBtn").onclick = () => {
+  const name = $("ctxName").value.trim();
+  if (!name) { $("ctxName").focus(); return; }
+  const emoji = $("ctxEmoji").value.trim().slice(0, 4);
+  customCtx.push({ id: "c-" + crypto.randomUUID(), name, emoji });
+  saveCustomCtx();
+  $("ctxName").value = "";
+  $("ctxEmoji").value = "";
+  renderContexts();
+  renderSettings();
+  toast(`Added "${name}"`);
+};
+
+/* ---- learned-phrase manager ---- */
+
+function forgetPhrase(context, text) {
+  const c = model.contexts[context];
+  if (!c || !c.sentences[text]) return false;
+  delete c.sentences[text];
+  saveModel();
+  return true;
+}
+
+function renderPhraseManager() {
+  const sel = $("phraseCtx");
+  const prev = sel.value;
+  sel.innerHTML = "";
+  for (const c of allContexts()) {
+    const o = document.createElement("option");
+    o.value = c.id;
+    o.textContent = c.label;
+    sel.appendChild(o);
+  }
+  sel.value = allContexts().some((c) => c.id === prev) ? prev : ctx;
+  const list = $("phraseList");
+  list.innerHTML = "";
+  const learned = Object.entries(model.contexts[sel.value]?.sentences || {}).sort((a, b) => b[1].c - a[1].c);
+  if (learned.length === 0) {
+    list.innerHTML = '<div class="empty">Nothing learned in this tab yet. Everything you speak lands here, most-used first.</div>';
+    return;
+  }
+  for (const [text, rec] of learned) {
+    const row = document.createElement("div");
+    row.className = "placeRow";
+    const label = document.createElement("span");
+    label.textContent = `${text} `;
+    const count = document.createElement("small");
+    count.className = "when";
+    count.textContent = `×${rec.c}`;
+    label.appendChild(count);
+    const del = document.createElement("button");
+    del.textContent = "✕";
+    del.title = "Forget this phrase";
+    del.onclick = () => { forgetPhrase(sel.value, text); renderPhraseManager(); renderSuggestions(); };
+    row.append(label, del);
+    list.appendChild(row);
+  }
+}
+$("phraseCtx").addEventListener("change", renderPhraseManager);
+
+/* ---- downloaded-voice manager ---- */
+
+async function renderVoiceStore() {
+  const list = $("voiceStore");
+  list.innerHTML = "";
+  if (!tts) {
+    list.innerHTML = '<div class="empty">Neural voices are unavailable on this device - the built-in voice is used instead.</div>';
+    return;
+  }
+  let stored = [];
+  try { stored = await tts.stored(); } catch { /* leave empty */ }
+  if (stored.length === 0) {
+    list.innerHTML = '<div class="empty">No voices downloaded yet - pick one at the top and tap Download.</div>';
+  }
+  for (const id of stored) {
+    const row = document.createElement("div");
+    row.className = "placeRow";
+    const label = document.createElement("span");
+    label.textContent = voiceLabel(id) + (id === voiceId ? " · in use" : "");
+    const del = document.createElement("button");
+    del.textContent = "✕";
+    del.title = "Remove this voice from the device";
+    del.onclick = async () => {
+      if (!confirm(`Remove "${voiceLabel(id)}" (~60 MB)? It can be downloaded again any time.`)) return;
+      try { await tts.remove(id); } catch (e) { toast(`Couldn't remove: ${e.message}`, true); return; }
+      await refreshVoiceStatus();
+      renderVoiceStore();
+    };
+    row.append(label, del);
+    list.appendChild(row);
+  }
+  if (navigator.storage?.estimate) {
+    try {
+      const est = await navigator.storage.estimate();
+      const note = document.createElement("div");
+      note.className = "empty";
+      note.textContent = `This site is using about ${Math.max(1, Math.round((est.usage || 0) / 1048576))} MB of browser storage in total.`;
+      list.appendChild(note);
+    } catch { /* fine without */ }
   }
 }
 
@@ -608,7 +817,7 @@ $("setEmergency").addEventListener("change", () => {
 });
 
 $("addPlaceBtn").onclick = () => {
-  if (!navigator.geolocation) { toast("This device can't give a location."); return; }
+  if (!navigator.geolocation) { toast("This device can't give a location.", true); return; }
   const name = $("placeName").value.trim();
   if (!name) { $("placeName").focus(); return; }
   const b = $("addPlaceBtn");
@@ -634,23 +843,23 @@ $("addPlaceBtn").onclick = () => {
     () => {
       b.disabled = false;
       b.textContent = "📍 Save this location";
-      toast("Couldn't get a location - check permission.");
+      toast("Couldn't get a location - check permission.", true);
     },
     { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 },
   );
 };
 
 $("setBtn").onclick = () => {
-  // Populate the context picker once.
+  // Rebuild the place-context picker each open: custom tabs may have changed.
   const pc = $("placeCtx");
-  if (!pc.options.length) {
-    for (const c of CONTEXTS) {
-      const o = document.createElement("option");
-      o.value = c.id;
-      o.textContent = c.label;
-      o.selected = c.id === "home";
-      pc.appendChild(o);
-    }
+  const prev = pc.value;
+  pc.innerHTML = "";
+  for (const c of allContexts()) {
+    const o = document.createElement("option");
+    o.value = c.id;
+    o.textContent = c.label;
+    o.selected = prev ? c.id === prev : c.id === "home";
+    pc.appendChild(o);
   }
   renderSettings();
   $("setPanel").classList.add("show");
@@ -666,7 +875,7 @@ $("exportBtn").onclick = async () => {
     app: "talkinghurts.com",
     schema: 1,
     exported: new Date().toISOString(),
-    model, hist, settings, places,
+    model, hist, settings, places, customCtx,
   };
   const stamp = new Date().toISOString().slice(0, 10);
   const file = new File([JSON.stringify(payload, null, 1)], `talking-hurts-${stamp}.json`, { type: "application/json" });
@@ -714,6 +923,13 @@ $("importFile").addEventListener("change", async () => {
       if (!settings.emergency && d.settings.emergency) settings.emergency = d.settings.emergency;
       saveSettings();
     }
+    const ctxIds = new Set(customCtx.map((c) => c.id)), ctxNames = new Set(customCtx.map((c) => c.name));
+    for (const c of d.customCtx || []) {
+      if (c && c.id && c.name && !ctxIds.has(c.id) && !ctxNames.has(c.name)) {
+        customCtx.push({ id: c.id, name: c.name, emoji: c.emoji || "" });
+      }
+    }
+    saveCustomCtx();
     const names = new Set(places.map((p) => p.name));
     for (const p of d.places || []) {
       if (p && p.name && !names.has(p.name) && Number.isFinite(p.lat) && Number.isFinite(p.lon)) {
@@ -721,11 +937,12 @@ $("importFile").addEventListener("change", async () => {
       }
     }
     savePlaces();
+    renderContexts();
     renderSettings();
     renderSuggestions();
     toast(`Imported ${phrases} learned phrase${phrases === 1 ? "" : "s"}`);
   } catch (e) {
-    toast(`Import failed: ${e.message}`);
+    toast(`Import failed: ${e.message}`, true);
   }
 });
 
@@ -755,7 +972,7 @@ function geoCheck() {
         const dd = distM(pos.coords.latitude, pos.coords.longitude, p.lat, p.lon);
         if (dd <= p.radius && dd < bestD) { best = p; bestD = dd; }
       }
-      if (best && best.ctx !== ctx && CONTEXTS.some((c) => c.id === best.ctx)) {
+      if (best && best.ctx !== ctx && allContexts().some((c) => c.id === best.ctx)) {
         ctx = best.ctx;
         localStorage.setItem(LS_CTX, ctx);
         renderContexts();

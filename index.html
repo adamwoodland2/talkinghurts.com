@@ -33,6 +33,34 @@
   "description": "A free communication aid for people who temporarily cannot speak: build sentences from one-tap phrases and predictive words and the device speaks them aloud. Learns the user's phrases locally, works offline as an installable app, and uploads nothing."
 }
 </script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Does my data leave my device?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. The phrase model, your history, your name and your saved places live in your browser's local storage. The only network use is downloading the app itself and, if you choose one, a neural voice. Backups are files you export and keep yourself." }
+    },
+    {
+      "@type": "Question",
+      "name": "Does it work offline?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Yes - add it to your home screen and everything works with no connection, including a downloaded neural voice. Prediction runs entirely on the device." }
+    },
+    {
+      "@type": "Question",
+      "name": "What do the voices sound like?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Out of the box it uses your device's built-in voice. You can optionally download a natural neural voice (Piper, about 60 MB, one-time) that speaks with proper sentence rhythm - much nicer for talking to people all day." }
+    },
+    {
+      "@type": "Question",
+      "name": "Is it a medical device?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. It is a simple free tool, not a regulated medical device or a substitute for professional speech therapy or AAC assessment. For long-term speech loss, please talk to a speech-language professional about full AAC solutions." }
+    }
+  ]
+}
+</script>
 </head>
 <body>
 
@@ -42,6 +70,7 @@
   <div id="voiceBox">
     <div id="voiceStatus">loading…</div>
     <select id="voiceSel" aria-label="Voice"></select>
+    <button id="voicePlay" title="Hear a sample of this voice" aria-label="Hear a sample of this voice">▶</button>
     <button id="setBtn" title="Settings" aria-label="Settings">⚙️</button>
   </div>
 </header>
@@ -99,12 +128,56 @@
       <button id="addPlaceBtn">📍 Save this location</button>
     </div>
 
+    <h3 class="setSub">Your tabs <span class="setHint">extra contexts of your own - each learns its own phrases</span></h3>
+    <div id="ctxList"></div>
+    <div class="ctxAdd">
+      <input id="ctxEmoji" type="text" maxlength="4" placeholder="⭐" aria-label="Emoji for the tab">
+      <input id="ctxName" type="text" placeholder="Name, e.g. Work">
+      <button id="addCtxBtn">+ Add tab</button>
+    </div>
+
+    <h3 class="setSub">Learned phrases <span class="setHint">everything the app has learned, most-used first - remove anything you don't want suggested (you can also long-press a suggestion)</span></h3>
+    <select id="phraseCtx" aria-label="Tab to show phrases for"></select>
+    <div id="phraseList"></div>
+
+    <h3 class="setSub">Voices on this device</h3>
+    <div id="voiceStore"></div>
+
     <h3 class="setSub">Move between devices</h3>
     <p class="setHint">Everything this app learns stays on this device. Export a backup file here and import it on your other phone or computer - imports merge, so learning from both devices adds together.</p>
     <div class="setRow">
       <button id="exportBtn">⬆ Export backup</button>
       <button id="importBtn">⬇ Import backup</button>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </div>
+
+    <h3 class="setSub">About</h3>
+    <div class="aboutText">
+      <p>Talking Hurts is a free communication aid for anyone who temporarily can't speak -
+      laryngitis, a strained voice, recovery from throat or thyroid surgery, mouth ulcers,
+      radiotherapy, or just a day when every word costs too much. It learns as you use it:
+      every sentence you speak becomes a one-tap suggestion the next time, organised by
+      where you are. Install it to your home screen and it works entirely offline.</p>
+      <h4>Does my data leave my device?</h4>
+      <p>No. The phrase model, your history, your name and your saved places live in your
+      browser's local storage. The only network use is downloading the app itself and, if
+      you choose one, a neural voice. Backups are files you export and keep yourself.</p>
+      <h4>Does it work offline?</h4>
+      <p>Yes - add it to your home screen and everything works with no connection, including
+      a downloaded neural voice. Prediction runs entirely on the device.</p>
+      <h4>What do the voices sound like?</h4>
+      <p>Out of the box it uses your device's built-in voice. You can optionally download a
+      natural neural voice (Piper, about 60 MB, one-time) that speaks with proper sentence
+      rhythm - much nicer for talking to people all day.</p>
+      <h4>Is it a medical device?</h4>
+      <p>No. It is a simple free tool, not a regulated medical device or a substitute for
+      professional speech therapy or AAC assessment. For long-term speech loss, please talk
+      to a speech-language professional about full AAC solutions.</p>
+      <p class="aboutFine">Free and open. Nothing tracked, nothing uploaded.
+      Neural voices are <a href="https://github.com/rhasspy/piper" rel="noopener noreferrer">Piper</a> models:
+      Male Northern English (OpenSLR 83, CC-BY-SA 4.0), Alan (Mycroft mimic3 apope), Jenny (Dioco),
+      Alba (Edinburgh DataShare, CC-BY 4.0), and Amy and Ryan (US). Speech synthesis runs on
+      your device with vits-web and ONNX Runtime (MIT).</p>
     </div>
   </div>
 </div>
@@ -118,43 +191,6 @@
 <div id="toast" role="status" aria-live="polite"></div>
 
 <audio id="player" playsinline></audio>
-
-<section class="about">
-  <div class="about-inner">
-    <h2>When talking hurts, tap instead</h2>
-    <p>Talking Hurts is a free communication aid for anyone who temporarily can't speak -
-    laryngitis, a strained voice, recovery from throat or thyroid surgery, mouth ulcers,
-    radiotherapy, or just a day when every word costs too much. Build a sentence from
-    one-tap phrases and predicted next words, and your phone or computer says it out loud
-    with a natural voice - or shows it in giant letters for the person opposite you.</p>
-    <p>It learns as you use it: every sentence you speak becomes a one-tap suggestion the
-    next time, organised by where you are - out and about, at home, in a shop, at a café,
-    at a medical appointment, or the always-visible red Help tab. Everything it learns
-    stays in your browser on your device. Nothing is uploaded, there are no accounts, no
-    tracking, and no cost. Install it to your home screen and it works entirely offline.</p>
-    <h3>Frequently asked questions</h3>
-    <h4>Does my data leave my device?</h4>
-    <p>No. The phrase model, your history, your name and your saved places live in your
-    browser's local storage. The only network use is downloading the app itself and, if
-    you choose one, a neural voice. Backups are files you export and keep yourself.</p>
-    <h4>Does it work offline?</h4>
-    <p>Yes - add it to your home screen and everything works with no connection, including
-    a downloaded neural voice. Prediction runs entirely on the device.</p>
-    <h4>What do the voices sound like?</h4>
-    <p>Out of the box it uses your device's built-in voice. You can optionally download a
-    natural neural voice (Piper, about 60 MB, one-time) that speaks with proper sentence
-    rhythm - much nicer for talking to people all day.</p>
-    <h4>Is it a medical device?</h4>
-    <p>No. It is a simple free tool, not a regulated medical device or a substitute for
-    professional speech therapy or AAC assessment. For long-term speech loss, please talk
-    to a speech-language professional about full AAC solutions.</p>
-    <p class="about-footer">Free and open. Nothing tracked, nothing uploaded.
-    Neural voices are <a href="https://github.com/rhasspy/piper" rel="noopener noreferrer">Piper</a> models:
-    Male Northern English (OpenSLR 83, CC-BY-SA 4.0), Alan (Mycroft mimic3 apope), Jenny (Dioco),
-    and Alba (Edinburgh DataShare, CC-BY 4.0). Speech synthesis runs on your device with
-    vits-web and ONNX Runtime (MIT).</p>
-  </div>
-</section>
 
 <script type="module" src="app.js"></script>
 </body>
